@@ -111,7 +111,9 @@ app.get('/api/expert-intake/:id/file', (req, res) => {
     res.status(500).json({ error: 'Server error' })
   }
 })
-
+app.get('/', (req, res) => {
+  res.json({ status: 'OK', service: 'VeriDx API' })
+})
 // DELETE /api/expert-intake/:id — delete submission and file
 app.delete('/api/expert-intake/:id', (req, res) => {
   try {
