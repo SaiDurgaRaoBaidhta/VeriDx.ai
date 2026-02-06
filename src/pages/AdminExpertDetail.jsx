@@ -75,6 +75,7 @@ export default function AdminExpertDetail() {
 
   const k = keyPoints || {}
   const hasCvContent = k.experience || k.education || k.qualifications || k.skills || k.age
+  const hasStoredSummary = submission.cvSummary && String(submission.cvSummary).trim()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-slate-50 ">
@@ -96,7 +97,13 @@ export default function AdminExpertDetail() {
             <h1 className="font-display font-bold text-2xl text-medical-navy">
               Summarized CV
             </h1>
-           
+
+            {hasStoredSummary && (
+              <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700 mb-2">Stored CV summary</h2>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap">{submission.cvSummary}</p>
+              </div>
+            )}
 
             <dl className="mt-8 space-y-6">
               <div>

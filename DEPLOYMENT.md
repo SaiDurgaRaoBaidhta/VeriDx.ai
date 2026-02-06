@@ -13,6 +13,15 @@ The `server/` folder must run somewhere public so the Vercel frontend can call i
 
 No trailing slash on the URL.
 
+### Railway + PostgreSQL (admin & expert data in DB)
+
+To store admin signup/login and expert CVs + summaries in a database:
+
+1. In Railway, add **PostgreSQL** to the same project (or use an existing Postgres service).
+2. In your backend service → **Variables**, add **`DATABASE_URL`** (Railway often sets this automatically when you add the Postgres plugin—use the Postgres connection URL).
+3. Redeploy the backend. On startup the server will create `admins` and `experts` tables if they don’t exist.
+4. With `DATABASE_URL` set, admin signup/login and expert submissions (including CV and stored summary) use Postgres.
+
 ---
 
 ## 2. Set the API URL in Vercel (required for shared data)

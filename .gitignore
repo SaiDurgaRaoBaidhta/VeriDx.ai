@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment (never commit real credentials)
+.env
+.env.local
+.env.*.local
+
+# Local server data (file-based fallback when no DB)
+server/data/*.json
+server/uploads/*
+!server/data/.gitkeep
+!server/uploads/.gitkeep
+
+# OS
+.DS_Store
+*.log
