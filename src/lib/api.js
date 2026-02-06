@@ -34,6 +34,102 @@ export function getFileDownloadUrl(id) {
   return `${API_BASE}/api/expert-intake/${id}/file`
 }
 
+// --- Admin auth (localStorage when no API; otherwise use backend) ---
+
+const ADMIN_STORAGE_KEY = 'veridx_admin_users'
+
+function getStoredAdmins() {
+  try {
+    const raw = localStorage.getItem(ADMIN_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function setStoredAdmins(list) {
+  localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(list))
+}
+
+/** Add an admin from signup. Validates uniqueness. Returns { ok, error }. */
+export function addStoredAdmin({ username, email, password }) {
+  const admins = getStoredAdmins()
+  const u = (username || '').trim().toLowerCase()
+  const e = (email || '').trim().toLowerCase()
+  if (!u || !e || !password) return { ok: false, error: 'Username, email and password are required' }
+  const taken = admins.some(
+    (a) =>
+      (a.username || '').toLowerCase() === u || (a.email || '').toLowerCase() === e
+  )
+  if (taken) return { ok: false, error: 'Username or email already in use' }
+  const id = `admin-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  admins.push({
+    id,
+    username: (username || '').trim(),
+    email: (email || '').trim(),
+    password,
+    createdAt: new Date().toISOString(),
+  })
+  setStoredAdmins(admins)
+  return { ok: true }
+}
+
+/** Validate login with username or email + password. Returns { ok, error }. */
+export function validateStoredAdmin(identifier, password) {
+  const admins = getStoredAdmins()
+  const id = (identifier || '').trim().toLowerCase()
+  if (!id || !password) return { ok: false, error: 'Username/email and password are required' }
+  const admin = admins.find(
+    (a) =>
+      (a.username || '').toLowerCase() === id || (a.email || '').toLowerCase() === id
+  )
+  if (!admin) return { ok: false, error: 'Invalid username or password' }
+  if (admin.password !== password) return { ok: false, error: 'Invalid username or password' }
+  return { ok: true }
+}
+
+export async function adminSignup({ username, email, password }) {
+  if (API_BASE) {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        return { ok: false, error: err.error || res.statusText }
+      }
+      const data = await res.json()
+      return { ok: true, data }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  }
+  return addStoredAdmin({ username, email, password })
+}
+
+export async function adminLogin({ identifier, password }) {
+  if (API_BASE) {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        return { ok: false, error: err.error || res.statusText }
+      }
+      const data = await res.json()
+      return { ok: true, data }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  }
+  return Promise.resolve(validateStoredAdmin(identifier, password))
+}
+
 export const STORAGE_KEY = 'veridx_expert_submissions'
 const CV_STORAGE_PREFIX = 'veridx_cv_'
 const CV_EXPIRY_HOURS = 10

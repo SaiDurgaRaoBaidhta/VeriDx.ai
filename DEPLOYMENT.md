@@ -1,81 +1,54 @@
-# Showing expert members on Vercel (shared data)
+# Making the deployed version work (Vercel + backend)
 
-## Why the admin table is empty on Vercel
-
-- **On localhost:** Expert intake submissions are either stored in your **local backend** (the `server/` that runs with `npm run server`) or in **localStorage** in your browser. The admin dashboard reads from the same place, so you see the list.
-- **On Vercel:** Only the **frontend** (React app) is deployed. There is **no backend** and **no shared storage**:
-  - `VITE_API_URL` is not set, so the app never calls an API.
-  - It falls back to **localStorage**, which is **per browser and per device**. Each visitor has their own empty localStorage on the Vercel domain, so the table stays empty and data is not shared.
-
-So to show expert members on the Vercel link for **everyone**, you need a **shared backend** that stores submissions and that the Vercel app can call.
+You **do not need to change any application code**. The app already uses `VITE_API_URL` for the API and falls back to localStorage when it’s not set. To get full functionality on the deployed site, do the following.
 
 ---
 
-## Option 1: Deploy your existing backend (recommended)
+## 1. Deploy the backend (if not already)
 
-Your `server/` already has the API (POST/GET expert-intake, file upload, DELETE). Deploy it to a host that runs Node.js, then point the Vercel frontend to it.
+The `server/` folder must run somewhere public so the Vercel frontend can call it.
 
-### Step 1: Deploy the backend (e.g. Railway or Render)
+- **Railway:** New Project → Deploy from GitHub → same repo. Set **Start Command** to `node server/index.js`. Copy the public URL (e.g. `https://your-app.up.railway.app`).
+- **Render:** New Web Service → connect repo. **Start Command:** `node server/index.js`. Copy the service URL.
 
-**Railway (free tier):**
+No trailing slash on the URL.
 
-1. Go to [railway.app](https://railway.app) and sign in (e.g. with GitHub).
-2. **New Project** → **Deploy from GitHub repo** and select this repo.
-3. Railway will detect the repo. Configure the service:
-   - **Root Directory:** leave default (repo root).
-   - **Build Command:** leave empty or `npm install`.
-   - **Start Command:** `node server/index.js`
-   - **Environment variables:** Add `PORT` if Railway doesn’t set it (they usually do).
-4. Deploy. After it’s live, open the generated URL (e.g. `https://your-app.up.railway.app`). No trailing slash.
+---
 
-**Render (free tier):**
+## 2. Set the API URL in Vercel (required for shared data)
 
-1. Go to [render.com](https://render.com) and sign in.
-2. **New** → **Web Service** → connect this repo.
-3. Settings:
-   - **Build Command:** `npm install`
-   - **Start Command:** `node server/index.js`
-   - **Instance Type:** Free.
-4. Deploy and copy the service URL (e.g. `https://your-app.onrender.com`).
+`VITE_*` variables are baked in at **build time**. So the value must be set in Vercel, not only in a local `.env`.
 
-**Note:** On free tiers, the filesystem is often ephemeral (uploads may be lost on restart). For permanent file storage you’d add a volume (Railway) or switch to cloud storage (e.g. S3). The **list of experts** (names, emails, etc.) is stored in `server/data/submissions.json` and usually persists as long as the service keeps the same filesystem.
-
-### Step 2: Point the Vercel frontend to the backend
-
-1. In **Vercel** → your project → **Settings** → **Environment Variables**.
+1. Open **Vercel** → your project → **Settings** → **Environment Variables**.
 2. Add:
    - **Name:** `VITE_API_URL`
-   - **Value:** your backend URL, e.g. `https://your-app.up.railway.app` or `https://your-app.onrender.com`  
-   (no trailing slash)
-3. **Redeploy** the Vercel project (e.g. trigger a new deployment from the Deployments tab) so the build uses the new variable.
-
-After redeploy:
-
-- Expert intake form (on the Vercel site) will **POST** to your deployed backend → submissions are stored on the server.
-- Admin dashboard (on the Vercel site) will **GET** from the same backend → the table will show all experts for anyone using the link.
-
-### Step 3: CORS
-
-Your server uses `cors()` with no options, so it allows all origins. Your Vercel domain (e.g. `https://your-app.vercel.app`) will be able to call the API. If you later restrict CORS, add that domain to the allowed list.
+   - **Value:** your backend URL (e.g. `https://your-app.up.railway.app`)
+   - **Environment:** Production (and optionally Preview).
+3. Save.
 
 ---
 
-## Option 2: Use a backend-only host
+## 3. Redeploy the frontend
 
-If you prefer to keep the frontend on Vercel and only deploy the Node server:
-
-- Deploy **only** the `server/` (e.g. as a separate repo or subdirectory) to Railway, Render, Fly.io, or a small VPS.
-- Expose the same API (`/api/expert-intake` GET/POST, `/api/expert-intake/:id/file`, DELETE).
-- Set **VITE_API_URL** in Vercel to that backend URL and redeploy the frontend.
+After adding or changing `VITE_API_URL`, trigger a new deployment (e.g. Deployments → … → Redeploy, or push a new commit). The new build will include the API URL.
 
 ---
 
-## Local development with a “production-like” API
+## What works when `VITE_API_URL` is set in Vercel
 
-To test the same behavior locally:
+| Feature | Without backend URL | With backend URL set in Vercel |
+|--------|----------------------|---------------------------------|
+| Expert intake form | Saves to localStorage (per device) | Saves to backend; shared for everyone |
+| Admin dashboard table | Empty or only local data | Shows all experts from backend |
+| Admin sign up | Stored in localStorage (per device) | Stored on backend; shared |
+| Admin login | Validates against localStorage only | Validates against backend; works across devices |
 
-1. Create a `.env` file in the project root (see `.env.example`).
-2. Set `VITE_API_URL=http://localhost:3001` (or whatever port your server uses).
-3. Run the server: `npm run server`.
-4. Run the app: `npm run dev`.  
-Submissions will go to the local server and the admin table will show them. On Vercel, the same code will use the deployed backend URL you set in `VITE_API_URL`.
+---
+
+## Summary: what you need to change
+
+- **In the code:** Nothing. Keep using the repo as is.
+- **In Vercel:** Add (or fix) **Environment Variable** `VITE_API_URL` = your backend URL, then **redeploy**.
+- **Backend:** Ensure the Node server is deployed and its URL is the one you put in `VITE_API_URL`.
+
+After that, the deployed version will use the backend for experts and admin auth and behave like localhost with the server running.

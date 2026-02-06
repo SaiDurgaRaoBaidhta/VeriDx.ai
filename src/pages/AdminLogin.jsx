@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { adminLogin } from '../lib/api'
 
-const ADMIN_USERNAME = 'admin'
-const ADMIN_PASSWORD = 'admin@123'
 export const ADMIN_AUTH_KEY = 'veridx_admin_authenticated'
 
 export default function AdminLogin() {
@@ -15,26 +14,25 @@ export default function AdminLogin() {
 
   const validate = () => {
     const next = {}
-    if (!username.trim()) next.username = 'Username is required'
+    if (!username.trim()) next.username = 'Username or email is required'
     if (!password) next.password = 'Password is required'
     setErrors(next)
     return Object.keys(next).length === 0
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitError(null)
     if (!validate()) return
     setSubmitting(true)
-    const trimmedUser = username.trim()
-    if (trimmedUser === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    const result = await adminLogin({ identifier: username.trim(), password })
+    setSubmitting(false)
+    if (result.ok) {
       sessionStorage.setItem(ADMIN_AUTH_KEY, '1')
-      setSubmitting(false)
       navigate('/admin-dashboard')
       return
     }
-    setSubmitError('Invalid username or password')
-    setSubmitting(false)
+    setSubmitError(result.error || 'Invalid username or password')
   }
 
   return (
@@ -103,7 +101,7 @@ export default function AdminLogin() {
               <form onSubmit={handleSubmit} className="mt-8 space-y-6">
             <div>
               <label htmlFor="username" className="block text-sm font-bold text-slate-700">
-                Username <span className="text-primary-600">*</span>
+                Username or email <span className="text-primary-600">*</span>
               </label>
               <input
                 id="username"
@@ -115,7 +113,7 @@ export default function AdminLogin() {
                   if (errors.username) setErrors((prev) => ({ ...prev, username: null }))
                 }}
                 className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-slate-900 font-medium shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all"
-                placeholder="Enter your username"
+                placeholder="Enter your username or email"
               />
               {errors.username && (
                 <p className="mt-1.5 text-sm text-red-600 font-medium">{errors.username}</p>

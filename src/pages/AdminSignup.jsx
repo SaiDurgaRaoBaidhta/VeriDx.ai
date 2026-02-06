@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { adminSignup } from '../lib/api'
+import { ADMIN_AUTH_KEY } from './AdminLogin'
 
 export default function AdminSignup() {
+  const navigate = useNavigate()
   const [form, setForm] = useState({
     username: '',
     password: '',
@@ -10,11 +13,13 @@ export default function AdminSignup() {
   })
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: null }))
+    if (submitError) setSubmitError(null)
   }
 
   const validate = () => {
@@ -30,12 +35,23 @@ export default function AdminSignup() {
     return Object.keys(next).length === 0
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    setSubmitError(null)
     if (!validate()) return
     setSubmitting(true)
-    // TODO: wire to admin signup API
-    setTimeout(() => setSubmitting(false), 500)
+    const result = await adminSignup({
+      username: form.username.trim(),
+      email: form.email.trim(),
+      password: form.password,
+    })
+    setSubmitting(false)
+    if (result.ok) {
+      sessionStorage.setItem(ADMIN_AUTH_KEY, '1')
+      navigate('/admin-dashboard')
+      return
+    }
+    setSubmitError(result.error || 'Sign up failed. Please try again.')
   }
 
   return (
@@ -91,6 +107,11 @@ export default function AdminSignup() {
           {/* Right: Sign up form */}
           <div className="lg:col-span-6">
             <div className="p-8 sm:p-10 rounded-3xl bg-white border border-slate-200/80 shadow-soft-lg">
+              {submitError && (
+                <p className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
+                  {submitError}
+                </p>
+              )}
               <h1 className="font-display font-bold text-2xl text-slate-900">sign up</h1>
               <p className="mt-2 text-slate-600 text-sm">
                 Create an account to continue.

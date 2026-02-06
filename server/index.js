@@ -9,6 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.join(__dirname, 'data')
 const UPLOADS_DIR = path.join(__dirname, 'uploads')
 const SUBMISSIONS_FILE = path.join(DATA_DIR, 'submissions.json')
+const ADMINS_FILE = path.join(DATA_DIR, 'admins.json')
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true })
@@ -24,6 +25,19 @@ function readSubmissions() {
 
 function writeSubmissions(list) {
   fs.writeFileSync(SUBMISSIONS_FILE, JSON.stringify(list, null, 2), 'utf8')
+}
+
+function readAdmins() {
+  try {
+    const raw = fs.readFileSync(ADMINS_FILE, 'utf8')
+    return JSON.parse(raw)
+  } catch {
+    return []
+  }
+}
+
+function writeAdmins(list) {
+  fs.writeFileSync(ADMINS_FILE, JSON.stringify(list, null, 2), 'utf8')
 }
 
 const storage = multer.diskStorage({
@@ -113,6 +127,68 @@ app.get('/api/expert-intake/:id/file', (req, res) => {
 })
 app.get('/', (req, res) => {
   res.json({ status: 'OK', service: 'VeriDx API' })
+})
+
+// POST /api/admin/signup — create an admin user
+app.post('/api/admin/signup', (req, res) => {
+  try {
+    const { username, email, password } = req.body || {}
+    if (!username?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({ error: 'Username, email and password are required' })
+    }
+
+    const admins = readAdmins()
+    const taken = admins.find(
+      (a) =>
+        a.username.toLowerCase() === username.trim().toLowerCase() ||
+        a.email.toLowerCase() === email.trim().toLowerCase()
+    )
+    if (taken) {
+      return res.status(409).json({ error: 'Username or email already in use' })
+    }
+
+    // NOTE: For a production system, store a password hash instead of plain text.
+    const id = `admin-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+    const record = {
+      id,
+      username: username.trim(),
+      email: email.trim(),
+      password,
+      createdAt: new Date().toISOString(),
+    }
+    admins.push(record)
+    writeAdmins(admins)
+    res.status(201).json({ id: record.id, username: record.username, email: record.email })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message || 'Server error' })
+  }
+})
+
+// POST /api/admin/login — authenticate by username OR email
+app.post('/api/admin/login', (req, res) => {
+  try {
+    const { identifier, password } = req.body || {}
+    if (!identifier?.trim() || !password) {
+      return res.status(400).json({ error: 'Username/email and password are required' })
+    }
+
+    const admins = readAdmins()
+    const idLower = identifier.trim().toLowerCase()
+    const admin = admins.find(
+      (a) =>
+        a.username.toLowerCase() === idLower ||
+        a.email.toLowerCase() === idLower
+    )
+    if (!admin || admin.password !== password) {
+      return res.status(401).json({ error: 'Invalid credentials' })
+    }
+
+    res.json({ id: admin.id, username: admin.username, email: admin.email })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message || 'Server error' })
+  }
 })
 // DELETE /api/expert-intake/:id — delete submission and file
 app.delete('/api/expert-intake/:id', (req, res) => {
